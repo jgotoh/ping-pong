@@ -18,7 +18,7 @@ main = do
   cfg <- parseConfig
   print cfg
   case cfg of
-    StartConfig ip p  -> startProcess ip p
+    StartConfig ip p      -> startProcess ip p
     JoinConfig ip p j raw -> joinProcess ip p j raw
 
 -- start process, register, wait for message, quit
@@ -43,22 +43,26 @@ joinProcess ip port join sendRaw = do
                                       NT.defaultTCPParameters
   node <- Node.newLocalNode trans Node.initRemoteTable
   Node.runProcess node $ do
-    -- try to connect directly via socket: works. maybe!!!!!!!! see newEndpoint, down there EndpointAddr is directly used
-    if sendRaw then do
-      Right localEndpoint <- P.liftIO $ T.newEndPoint trans
-      Right conn <- P.liftIO $ T.connect localEndpoint joinEndpointAddr T.ReliableOrdered T.defaultConnectHints
-      Right () <- P.liftIO $ T.send conn [pack "raw hello"]
-      P.liftIO $ print "successfully sent raw hello"
-    else do
+    -- try to connect directly via socket: works.
+    if sendRaw
+      then do
+        Right localEndpoint <- P.liftIO $ T.newEndPoint trans
+        Right conn          <- P.liftIO $ T.connect localEndpoint
+                                                    joinEndpointAddr
+                                                    T.ReliableOrdered
+                                                    T.defaultConnectHints
+        Right () <- P.liftIO $ T.send conn [pack "raw hello"]
+        P.liftIO $ print "successfully sent raw hello"
+      else do
     -- try to find registered process: does not work
-      P.liftIO $ print "searching process"
-      (Just pid) <- searchProcessTimeout processName joinNode 5000
-      P.liftIO $ print "found process, sending message"
-      P.send pid "hello"
+        P.liftIO $ print "searching process"
+        (Just pid) <- searchProcessTimeout processName joinNode 5000
+        P.liftIO $ print "found process, sending message"
+        P.send pid "hello"
 
  where
   joinEndpointAddr = T.EndPointAddress $ pack join
-  joinNode     = P.NodeId joinEndpointAddr
+  joinNode         = P.NodeId joinEndpointAddr
 
 searchProcessTimeout
   :: String -> P.NodeId -> Int -> P.Process (Maybe P.ProcessId)
@@ -109,9 +113,11 @@ joinConfigParser =
 startConfigParser :: Parser Config
 startConfigParser =
   StartConfig
-    <$> strOption (long "startip" <> help "IP of hosting process" <> metavar "IP")
-    <*> option auto
-               (long "startp" <> help "Port of hosting process" <> metavar "PORT")
+    <$> strOption
+          (long "startip" <> help "IP of hosting process" <> metavar "IP")
+    <*> option
+          auto
+          (long "startp" <> help "Port of hosting process" <> metavar "PORT")
 
 configParser :: Parser Config
 configParser = startConfigParser <|> joinConfigParser
