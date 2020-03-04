@@ -10,3 +10,9 @@ Or you can join a already started process:
 
 `cabal new-run exes -- --ip localhost --p 3001 --j localhost:3000:0`
 
+Instead of joining, you can also try to connect to the Endpoint directly via TCP and send a raw message by using the flag --raw:
+
+`cabal new-run exes -- --ip localhost --p 3001 --j localhost:3000:0 --raw`
+
+Note that the other process may crash then.
+

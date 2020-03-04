@@ -19,9 +19,10 @@ main = do
   print cfg
   case cfg of
     StartConfig ip p  -> startProcess ip p
-    JoinConfig ip p j -> joinProcess ip p j
+    JoinConfig ip p j raw -> joinProcess ip p j raw
 
 -- start process, register, wait for message, quit
+startProcess :: String -> Int -> IO ()
 startProcess ip port = do
   (Right trans) <- NT.createTransport (NT.defaultTCPAddr ip (show port))
                                       NT.defaultTCPParameters
@@ -36,22 +37,24 @@ startProcess ip port = do
     P.liftIO $ print $ "received message: " ++ msg
 
 -- search for started process, send message, quit
-joinProcess ip port join = do
+joinProcess :: String -> Int -> String -> Bool -> IO ()
+joinProcess ip port join sendRaw = do
   (Right trans) <- NT.createTransport (NT.defaultTCPAddr ip (show port))
                                       NT.defaultTCPParameters
   node <- Node.newLocalNode trans Node.initRemoteTable
   Node.runProcess node $ do
     -- try to connect directly via socket: works. maybe!!!!!!!! see newEndpoint, down there EndpointAddr is directly used
-    Right localEndpoint <- P.liftIO $ T.newEndPoint trans
-    Right conn <- P.liftIO $ T.connect localEndpoint joinEndpointAddr T.ReliableOrdered T.defaultConnectHints
-    Right () <- P.liftIO $ T.send conn [pack "raw hello"]
-    P.liftIO $ print "successfully sent raw hello"
-
+    if sendRaw then do
+      Right localEndpoint <- P.liftIO $ T.newEndPoint trans
+      Right conn <- P.liftIO $ T.connect localEndpoint joinEndpointAddr T.ReliableOrdered T.defaultConnectHints
+      Right () <- P.liftIO $ T.send conn [pack "raw hello"]
+      P.liftIO $ print "successfully sent raw hello"
+    else do
     -- try to find registered process: does not work
-    P.liftIO $ print "searching process"
-    (Just pid) <- searchProcessTimeout processName joinNode 5000
-    P.liftIO $ print "found process, sending message"
-    P.send pid "hello"
+      P.liftIO $ print "searching process"
+      (Just pid) <- searchProcessTimeout processName joinNode 5000
+      P.liftIO $ print "found process, sending message"
+      P.send pid "hello"
 
  where
   joinEndpointAddr = T.EndPointAddress $ pack join
@@ -85,7 +88,7 @@ searchProcessTimeout name addr timeLeft
   timeoutMS = 1000
   timeout   = Time.asTimeout $ Time.milliSeconds timeoutMS
 
-data Config = JoinConfig {ip :: String, port :: Int, join :: String}
+data Config = JoinConfig {ip :: String, port :: Int, join :: String, raw :: Bool}
             | StartConfig {ip :: String, port :: Int}
   deriving (Show)
 
@@ -98,7 +101,10 @@ joinConfigParser =
     <$> strOption (long "ip" <> help "IP of joining process" <> metavar "IP")
     <*> option auto (long "p" <> help "Port of joining" <> metavar "PORT")
     <*> strOption (long "j" <> help "EndpointAddress to join" <> metavar "JOIN")
-
+    <*> switch
+          (long "raw" <> help
+            "Set flag to connect via TCP instead of searching for a process"
+          )
 
 startConfigParser :: Parser Config
 startConfigParser =
