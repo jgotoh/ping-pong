@@ -21,6 +21,7 @@ main = do
     StartConfig ip p  -> startProcess ip p
     JoinConfig ip p j -> joinProcess ip p j
 
+-- start process, register, wait for message, quit
 startProcess ip port = do
   (Right trans) <- NT.createTransport (NT.defaultTCPAddr ip (show port))
                                       NT.defaultTCPParameters
@@ -34,19 +35,27 @@ startProcess ip port = do
     msg <- P.expect :: P.Process String
     P.liftIO $ print $ "received message: " ++ msg
 
+-- search for started process, send message, quit
 joinProcess ip port join = do
   (Right trans) <- NT.createTransport (NT.defaultTCPAddr ip (show port))
                                       NT.defaultTCPParameters
   node <- Node.newLocalNode trans Node.initRemoteTable
   Node.runProcess node $ do
+    -- try to connect directly via socket: works. maybe!!!!!!!! see newEndpoint, down there EndpointAddr is directly used
+    Right localEndpoint <- P.liftIO $ T.newEndPoint trans
+    Right conn <- P.liftIO $ T.connect localEndpoint joinEndpointAddr T.ReliableOrdered T.defaultConnectHints
+    Right () <- P.liftIO $ T.send conn [pack "raw hello"]
+    P.liftIO $ print "successfully sent raw hello"
+
+    -- try to find registered process: does not work
     P.liftIO $ print "searching process"
     (Just pid) <- searchProcessTimeout processName joinNode 5000
     P.liftIO $ print "found process, sending message"
     P.send pid "hello"
 
  where
-  joinEndpoint = T.EndPointAddress $ pack join
-  joinNode     = P.NodeId joinEndpoint
+  joinEndpointAddr = T.EndPointAddress $ pack join
+  joinNode     = P.NodeId joinEndpointAddr
 
 searchProcessTimeout
   :: String -> P.NodeId -> Int -> P.Process (Maybe P.ProcessId)
