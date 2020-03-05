@@ -16,3 +16,6 @@ Instead of joining, you can also try to connect to the Endpoint directly via TCP
 
 Note that the other process may crash then.
 
+
+When using distributed-process 0.74 from hackage, it does not work (due to whereisRemoteAsync). 
+Depending on the current version up on the master branch of distributed-process via cabal.project solved the issue.
