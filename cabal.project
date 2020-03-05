@@ -1,0 +1,6 @@
+packages: .
+
+source-repository-package
+    type: git
+    location: https://github.com/jgotoh/distributed-process.git
+    tag: b27ffcc9b82f051fe5bcac1b6ace0bfc5f04b25e

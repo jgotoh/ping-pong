@@ -1,5 +1,8 @@
 module Main where
 
+import qualified Control.Distributed.Process.Internal.Messaging as M
+import qualified Control.Distributed.Process.Extras.SystemLog as Log
+import Control.Distributed.Process.Internal.Types
 import qualified Control.Distributed.Process   as P
 import qualified Network.Transport             as T
 import qualified Control.Distributed.Process.Node
@@ -28,9 +31,9 @@ startProcess ip port = do
                                       NT.defaultTCPParameters
   node <- Node.newLocalNode trans Node.initRemoteTable
   Node.runProcess node $ do
+    _ <- Log.systemLog (P.liftIO . print) (return ()) Log.Debug return
     pid <- P.getSelfPid
-    P.register processName pid
-
+    P.registerRemoteAsync (Node.localNodeId node) processName pid
     let serverAddress = P.nodeAddress $ Node.localNodeId node
     P.liftIO $ print $ "waiting for message at: " ++ show serverAddress
     msg <- P.expect :: P.Process String
@@ -43,6 +46,13 @@ joinProcess ip port join sendRaw = do
                                       NT.defaultTCPParameters
   node <- Node.newLocalNode trans Node.initRemoteTable
   Node.runProcess node $ do
+
+    _ <- Log.systemLog (P.liftIO . print) (return ()) Log.Debug return
+
+    -- whereisRemoteAsync uses sendCtrlMsg, try whether other CtrlMsgs are sendable/ received
+    -- M.sendCtrlMsg (pure joinNode) (GetNodeStats joinNode)
+    -- M.sendCtrlMsg (pure joinNode) (SigShutdown)
+
     -- try to connect directly via socket: works.
     if sendRaw
       then do
